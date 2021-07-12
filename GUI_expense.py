@@ -1,4 +1,5 @@
-# GUI Basic.py
+# GUI Basic.py  Vorsion 1.1 
+# เพิ่ม ID ให้ข้อมูลเพื่อให้สามารถแก้ไขและอัพเดทได้ โดยใช้ timestamp และสร้างปุ่มสำหรับลบข้อมูล
 import builtins
 from tkinter import *
 from tkinter import ttk, messagebox
@@ -8,7 +9,7 @@ import csv
 
 root = Tk () 
 root.title('โปรแกรมบันทึกค่าใช้จ่าย By ปาร์ค')
-root.geometry ('600x500') 
+root.geometry ('600x600') 
 
 Font1 = (None,20) #None เปลี่ยนเป็น 'Angsana New' ได้
 Font2 = ('Sans Serif',12) #None เปลี่ยนเป็น 'Angsana New' ได้
@@ -47,7 +48,7 @@ tabControl.pack(expand = 1, fill = 'both')
 
 
 days = {'Mon':'จันทร์',
-        'Tus':'อังคาร',
+        'Tue':'อังคาร',
         'Wed':'พุธ',
         'Thu':'พฤหัสบดี',
         'Fri':'ศุกร์',
@@ -75,12 +76,16 @@ def Save (event = None):
     elif count == '':
         count = 1
     today = datetime.now().strftime('%a')
+    stamp = datetime.now() #สร้าง id ให้ข้อมูลโดยใช้ timestamp
+    tran_id = stamp.strftime('%Y%m%d%H%M%f') #%f หน่วยเป็น microsecond
     dt = datetime.now().strftime('%d-%m-%Y %H:%M')
     dt = days[today] + 'ที่ ' + dt
+    fp = float(price)
+    fc = float(count)
     try:
-        total = float(price)*float(count)
-        print('วัน {} ซื้อ{} ราคา {} บาท จำนวน {} รวมทั้งหมด {} บาท'.format(dt,expense,price,count,total))
-        text = 'วัน{}\nซื้อ{} \nราคา {} บาท จำนวน {} \nรวมทั้งหมด {} บาท'.format(dt,expense,price,count,total)
+        total = fp*fc
+        print('วัน {} ซื้อ{} ราคา {:,.2f} บาท จำนวน {} รวมทั้งหมด {:,.2f} บาท'.format(dt,expense,fp,count,total))
+        text = 'วัน{}\nซื้อ{} \nราคา {:,.2f} บาท จำนวน {} \nรวมทั้งหมด {:,.2f} บาท'.format(dt,expense,fp,count,total)
         v_result.set(text)
         #เคลียร์ข้อมูลเก่า
         v_expense.set('')
@@ -92,7 +97,7 @@ def Save (event = None):
             # 'a' คือการบันทึกต่อเรื่อย ๆ ถ้าใช้ 'w' จะเป็นการลบเขียนใหม่
             # newline = '' ทำให้ข้อมูลไม่มีบรรทัดว่าง
             fw = csv.writer(f) #สร้างฟังก์ชั่นสำหรับเขียนข้อมูล
-            data = [dt,expense,price,count,total]
+            data = [tran_id,dt,expense,price,count,total]
             fw.writerow(data)
         # ทำให้เคเซอร์กลับไปช่อง E1
         E1.focus()
@@ -152,7 +157,7 @@ def read_csv ():
 L = ttk.Label(tab2,text='ตารางค่าใช้จ่ายทั้งหมด',font=Font1).pack()
 
 # สร้างตาราง
-header = ['วัน-เวลา','ราการ','ค่าใช้จ่าย','จำนวน','รวม']
+header = ['รหัสรายการ','วัน-เวลา','ราการ','ค่าใช้จ่าย','จำนวน','รวม']
 resulttable = ttk.Treeview(tab2,columns=header,show='headings',height=20)
 resulttable.pack(pady=10)
 
@@ -161,18 +166,67 @@ for h in header:
     resulttable.heading(h,text=h)
 
 # กำหนดความกว้างของตาราง zip ใช้ในการรวมลิสเข้าด้วยกัน
-headerwidth = [150,170,80,80,80]
+headerwidth = [125,135,100,80,50,80]
 for h,w in zip(header,headerwidth):
     resulttable.column(h,width=w)
+
+All_T = {} #สร้าง Dic เพื่อรวมชุดข้อมูลสำหรับค้นหาใน CSV
+
+#สร้างฟังชั่นสำหรับเขียน csv ใหม่
+def UpdateCSV():
+    with open ('savedata.csv','w',newline='',encoding='utf-8') as f:
+        fw = csv.writer(f)
+        # เตรียมข้อมูลให้กลายเป็น list
+        data = list(All_T.values())
+        fw.writerows(data) #multiple line from nest list
+        print('table was update')
+        
+#สร้างฟังก์ชั่นสำหรับปุ่ม delete
+def Del_Rec(event=None): #ผูกไฟล์แล้วอย่าลืมใส่ event = None
+    try:
+        check = messagebox.askyesno('Confirm?','คุณต้องการลบข้อมูลใช่หรือไม่?') 
+        #สร้าง checkbox yes/no
+        print ('Yes/No:',check)
+
+        if check == True:
+            print('delete')
+            select = resulttable.selection()
+            #print (select)
+            data = resulttable.item(select)
+            data = data['values']
+            t_id = data[0]
+            #print(T_ID)
+            del All_T[str(t_id)]
+            #print(All_T)
+            UpdateCSV()
+            upadate_table() #ลบแล้วอย่าลืมอัพเดท
+        else:
+            print('Canceled')
+    except:
+        print('ERROR:')
+        messagebox.showwarning('Error','กรุณาเลือกข้อมูลที่ต้องการลบ')
+
+
+# สร้างปุ่ม delete
+B_Del = ttk.Button(tab2,text='Delete',command=Del_Rec)
+B_Del.place(x=50,y=500)
+
+resulttable.bind('<Delete>',Del_Rec)
 
 # ใส่ value ให้ตารางที่สร้างไว้ อัพเดทข้อมูล
 def upadate_table():
     resulttable.delete(*resulttable.get_children()) #ล้างข้อมูลเก่าเพื่อไม่ให้เขียนซ้ำ
-    data = read_csv()
-    for d in data:
-        resulttable.insert('',0,values=d)
+    try: #ตรวจหาไฟล์ในกรณไม่มีไฟล์ข้อมูล ถ้าไม่มีก็ให้ข้ามไป
+        data = read_csv()
+        for d in data:
+            # สร้าง All_T data
+            All_T[d[0]] = d
+            resulttable.insert('',0,values=d)
+        #print(All_T)
+    except:
+        print('No File')
 
 upadate_table()
-
+print('Get CHILD:',resulttable.get_children())
 root.bind('<Tab>', lambda x: E2.focus())
 root.mainloop ()
