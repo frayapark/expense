@@ -1,5 +1,5 @@
-# GUI Basic.py  Vorsion 1.1 
-# เพิ่ม ID ให้ข้อมูลเพื่อให้สามารถแก้ไขและอัพเดทได้ โดยใช้ timestamp และสร้างปุ่มสำหรับลบข้อมูล
+# GUI Basic.py  Vorsion 1.2 
+# ทำ popup สำหรับคลิกขวาให้สามารถลบและแก้ไขข้อความได้
 import builtins
 from tkinter import *
 from tkinter import ttk, messagebox
@@ -67,8 +67,8 @@ B1.pack(ipadx=30,ipady=20)
 '''
 def Save (event = None):
     expense = v_expense.get() #.get = ดึงข้อมูลจาก v_expense
-    price = v_price.get()
-    count = v_count.get()
+    price = float(v_price.get())
+    count = float(v_count.get())
     if expense == '':
         messagebox.showwarning('Error','กรุณากรอกชื่อสินค้า')
     elif price == '':
@@ -80,12 +80,10 @@ def Save (event = None):
     tran_id = stamp.strftime('%Y%m%d%H%M%f') #%f หน่วยเป็น microsecond
     dt = datetime.now().strftime('%d-%m-%Y %H:%M')
     dt = days[today] + 'ที่ ' + dt
-    fp = float(price)
-    fc = float(count)
     try:
-        total = fp*fc
-        print('วัน {} ซื้อ{} ราคา {:,.2f} บาท จำนวน {} รวมทั้งหมด {:,.2f} บาท'.format(dt,expense,fp,count,total))
-        text = 'วัน{}\nซื้อ{} \nราคา {:,.2f} บาท จำนวน {} \nรวมทั้งหมด {:,.2f} บาท'.format(dt,expense,fp,count,total)
+        total = price*count
+        print('วัน {} ซื้อ{} ราคา {:,.2f} บาท จำนวน {} รวมทั้งหมด {:,.2f} บาท'.format(dt,expense,price,count,total))
+        text = 'วัน{}\nซื้อ{} \nราคา {:,.2f} บาท จำนวน {} \nรวมทั้งหมด {:,.2f} บาท'.format(dt,expense,total,count,total)
         v_result.set(text)
         #เคลียร์ข้อมูลเก่า
         v_expense.set('')
@@ -225,6 +223,72 @@ def upadate_table():
         #print(All_T)
     except:
         print('No File')
+
+#########Right Click Manu##########
+def Edit_Rec():
+    POPUP = Toplevel()
+    POPUP.geometry('300x300')
+    POPUP.title('แก้ไขข้อมูล')
+
+    L1 = ttk.Label(POPUP,text='รายการค่าใช้จ่าย',font=Font1).pack()
+    v_expense = StringVar() #ตัวแปลพิเศษสำหรับเก็บข้อมูลใน GUI
+    E1 = ttk.Entry(POPUP,textvariable=v_expense,font=Font2)
+    E1.pack()
+    #-------------------------
+
+    #-------text2--------
+    L2 = ttk.Label(POPUP,text='ราคา (บาท)',font=Font1).pack()
+    v_price = StringVar()
+    E2 = ttk.Entry(POPUP,textvariable=v_price,font=Font2)
+    E2.pack()
+    #-------------------------
+
+    #-------text3--------
+    L3 = ttk.Label(POPUP,text='จำนวน (ชิ้น)',font=Font1).pack()
+    v_count = StringVar()
+    E3 = ttk.Entry(POPUP,textvariable=v_count,font=Font2)
+    E3.pack()
+    #-------------------------
+
+    def Edit():
+        old_data = All_T[str(t_id)] #ดึงข้อมูลเก่า
+        #print('OLD:',old_data)
+        v1 = v_expense.get()
+        p1 = float(v_price.get())
+        c1 = float(v_price.get())
+        total = p1*c1
+        new_data = [old_data[0],old_data[1],v1,p1,c1,total] #เปลี่ยนเป็นข้อมูลใหม่
+        All_T[str(t_id)] = new_data #อัพเดทข้อมูลในทรานเซคชั่น
+        UpdateCSV()
+        upadate_table() #เสร็จแล้วอย่าลืมอัพเดตนะ
+        POPUP.destroy() #สั่งปิดหน้าต่าง
+
+    B1 = ttk.Button(POPUP, image=ic1, text = 'Save' , command=Edit,compound=LEFT)
+    B1.pack(pady=15)
+
+    
+    # เลือกข้อมูลสำหรับช่องแก้ไข
+    select = resulttable.selection()
+    data = resulttable.item(select)
+    data = data['values']
+    t_id = data[0]
+
+    #เซ็ตค่าเก่าข้อมูล
+    v_expense.set(data[2])
+    v_price.set(data[3])
+    v_count.set(data[4])
+
+    POPUP.mainloop()
+
+r_click = Menu(root,tearoff=0)
+r_click.add_command(label='Edit',command=Edit_Rec)
+r_click.add_command(label='Delete',command=Del_Rec)
+
+def m_pop(event):
+    print(event.x_root, event.y_root) #event.x_root, event.y_root ขอกตำแหน่งเมาส์
+    r_click.post(event.x_root, event.y_root) # .post สร้าง popup
+
+resulttable.bind('<Button-3>',m_pop) # เมื่อมีการคลิกขวาที่ resulable
 
 upadate_table()
 print('Get CHILD:',resulttable.get_children())
