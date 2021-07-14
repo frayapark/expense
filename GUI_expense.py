@@ -1,11 +1,74 @@
-# GUI Basic.py  Vorsion 1.1 
-# เพิ่ม ID ให้ข้อมูลเพื่อให้สามารถแก้ไขและอัพเดทได้ โดยใช้ timestamp และสร้างปุ่มสำหรับลบข้อมูล
+# GUI Basic.py  Vorsion 2.0 beta 
+# เปลี่ยนมาใช้ database แทน csv
 import builtins
 from tkinter import *
 from tkinter import ttk, messagebox
 from tkinter.font import Font #theme
 from datetime import datetime
 import csv
+
+#######################################################
+import sqlite3
+
+# สร้าง data base
+conn = sqlite3.connect('expense.db')
+# สร้างตัวดำเนินการ อยากได้อะไรใช้ตัวนี้ได้เลย
+c = conn.cursor()
+
+#สร้าง table ด้วยภาษา SQL
+'''
+['รหัสรายการ'(transactionid) text,
+'วัน-เวลา'(datetime) text,
+'ราการ'(title) text,
+'ค่าใช้จ่าย'(expense) real(float),
+'จำนวน'(count) integer,
+'รวม'(total)] real
+'''
+c.execute("""CREATE TABLE IF NOT EXISTS expenselist (
+                ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                transactionid TEXT,
+                datetime TEXT,
+                title TEXT,
+                expense REAL,
+                count INTEGER,
+                total REAL        
+            )""")
+
+def insert_expense(transactionid,datetime,title,expense,count,total):
+    ID = None
+    with conn:
+        c.execute("""INSERT INTO expenselist VALUES (?,?,?,?,?,?,?)""",
+            (ID,transactionid,datetime,title,expense,count,total))
+    conn.commit() # บันทึกข้อมูลลงฐานข้อมูล
+    #print ('Inset Success!')
+
+def show_expense():
+    with conn:
+        c.execute("SELECT * FROM expenselist")
+        expense = c.fetchall() # คำสั่งดึงข้อมูล
+       # print(expense)
+
+    return expense
+
+def Update(transactionid,title,expense,count,total):
+    with conn:
+        c.execute("""UPDATE expenselist SET 
+                    title=?,
+                    expense=?,
+                    count=?,
+                    total=?
+                    WHERE transactionid=?""",
+                    ([title,expense,count,total,transactionid,]))
+    conn.commit()
+    # print ('Data updated')
+
+def Delete(transactionid):
+    with conn:
+        c.execute("""DELETE FROM expenselist WHERE transactionid=?""",([transactionid]))
+    conn.commit()
+    # print ('Deleted')
+
+#######################################################
 
 root = Tk () 
 root.title('โปรแกรมบันทึกค่าใช้จ่าย By ปาร์ค')
@@ -67,8 +130,8 @@ B1.pack(ipadx=30,ipady=20)
 '''
 def Save (event = None):
     expense = v_expense.get() #.get = ดึงข้อมูลจาก v_expense
-    price = v_price.get()
-    count = v_count.get()
+    price = float(v_price.get())
+    count = int(v_count.get())
     if expense == '':
         messagebox.showwarning('Error','กรุณากรอกชื่อสินค้า')
     elif price == '':
@@ -80,12 +143,13 @@ def Save (event = None):
     tran_id = stamp.strftime('%Y%m%d%H%M%f') #%f หน่วยเป็น microsecond
     dt = datetime.now().strftime('%d-%m-%Y %H:%M')
     dt = days[today] + 'ที่ ' + dt
-    fp = float(price)
-    fc = float(count)
+    total = price*count
+
+    insert_expense(tran_id,dt,expense,price,count,total)
+
     try:
-        total = fp*fc
-        print('วัน {} ซื้อ{} ราคา {:,.2f} บาท จำนวน {} รวมทั้งหมด {:,.2f} บาท'.format(dt,expense,fp,count,total))
-        text = 'วัน{}\nซื้อ{} \nราคา {:,.2f} บาท จำนวน {} \nรวมทั้งหมด {:,.2f} บาท'.format(dt,expense,fp,count,total)
+        # print('วัน {} ซื้อ{} ราคา {:,.2f} บาท จำนวน {} รวมทั้งหมด {:,.2f} บาท'.format(dt,expense,price,count,total))
+        text = 'วัน{}\nซื้อ{} \nราคา {:,.2f} บาท จำนวน {} \nรวมทั้งหมด {:,.2f} บาท'.format(dt,expense,total,count,total)
         v_result.set(text)
         #เคลียร์ข้อมูลเก่า
         v_expense.set('')
@@ -179,17 +243,24 @@ def UpdateCSV():
         # เตรียมข้อมูลให้กลายเป็น list
         data = list(All_T.values())
         fw.writerows(data) #multiple line from nest list
-        print('table was update')
+        # print('table was update')
         
+
+def updateSQL():
+    data = list(All_T.values())
+    #print ('update:',data[0])
+    for d in data:
+        Update(d[0],d[2],d[3],d[4],d[5])
+
 #สร้างฟังก์ชั่นสำหรับปุ่ม delete
 def Del_Rec(event=None): #ผูกไฟล์แล้วอย่าลืมใส่ event = None
     try:
         check = messagebox.askyesno('Confirm?','คุณต้องการลบข้อมูลใช่หรือไม่?') 
         #สร้าง checkbox yes/no
-        print ('Yes/No:',check)
+        # print ('Yes/No:',check)
 
         if check == True:
-            print('delete')
+            # print('delete')
             select = resulttable.selection()
             #print (select)
             data = resulttable.item(select)
@@ -198,12 +269,14 @@ def Del_Rec(event=None): #ผูกไฟล์แล้วอย่าลืม
             #print(T_ID)
             del All_T[str(t_id)]
             #print(All_T)
-            UpdateCSV()
+            #UpdateCSV()
+            Delete(str(t_id))
             upadate_table() #ลบแล้วอย่าลืมอัพเดท
         else:
-            print('Canceled')
+            # print('Canceled')
+            pass
     except:
-        print('ERROR:')
+        # print('ERROR:')
         messagebox.showwarning('Error','กรุณาเลือกข้อมูลที่ต้องการลบ')
 
 
@@ -217,16 +290,86 @@ resulttable.bind('<Delete>',Del_Rec)
 def upadate_table():
     resulttable.delete(*resulttable.get_children()) #ล้างข้อมูลเก่าเพื่อไม่ให้เขียนซ้ำ
     try: #ตรวจหาไฟล์ในกรณไม่มีไฟล์ข้อมูล ถ้าไม่มีก็ให้ข้ามไป
-        data = read_csv()
+        data = show_expense()#read_csv()
         for d in data:
             # สร้าง All_T data
-            All_T[d[0]] = d
-            resulttable.insert('',0,values=d)
+            All_T[d[1]] = d[1:]
+            resulttable.insert('',0,values=d[1:])
         #print(All_T)
     except:
-        print('No File')
+        # print('No File')
+        pass
+
+#########Right Click Manu##########
+def Edit_Rec():
+    POPUP = Toplevel()
+    POPUP.geometry('300x300')
+    POPUP.title('แก้ไขข้อมูล')
+
+    L1 = ttk.Label(POPUP,text='รายการค่าใช้จ่าย',font=Font1).pack()
+    v_expense = StringVar() #ตัวแปลพิเศษสำหรับเก็บข้อมูลใน GUI
+    E1 = ttk.Entry(POPUP,textvariable=v_expense,font=Font2)
+    E1.pack()
+    #-------------------------
+
+    #-------text2--------
+    L2 = ttk.Label(POPUP,text='ราคา (บาท)',font=Font1).pack()
+    v_price = StringVar()
+    E2 = ttk.Entry(POPUP,textvariable=v_price,font=Font2)
+    E2.pack()
+    #-------------------------
+
+    #-------text3--------
+    L3 = ttk.Label(POPUP,text='จำนวน (ชิ้น)',font=Font1).pack()
+    v_count = StringVar()
+    E3 = ttk.Entry(POPUP,textvariable=v_count,font=Font2)
+    E3.pack()
+    #-------------------------
+
+    def Edit():
+        old_data = All_T[str(t_id)] #ดึงข้อมูลเก่า
+        #print('OLD:',old_data)
+        v1 = v_expense.get()
+        p1 = float(v_price.get())
+        c1 = float(v_price.get())
+        total = p1*c1
+        new_data = [old_data[0],old_data[1],v1,p1,c1,total] #เปลี่ยนเป็นข้อมูลใหม่
+        All_T[str(t_id)] = new_data #อัพเดทข้อมูลในทรานเซคชั่น
+        #UpdateCSV()
+        updateSQL()
+        #Update(old_data[0],old_data[1],v1,p1,c1,total)#single record
+        upadate_table() #เสร็จแล้วอย่าลืมอัพเดตนะ
+        POPUP.destroy() #สั่งปิดหน้าต่าง
+
+    B1 = ttk.Button(POPUP, image=ic1, text = 'Save' , command=Edit,compound=LEFT)
+    B1.pack(pady=15)
+
+    
+    # เลือกข้อมูลสำหรับช่องแก้ไข
+    select = resulttable.selection()
+    data = resulttable.item(select)
+    data = data['values']
+    t_id = data[0]
+
+    #เซ็ตค่าเก่าข้อมูล
+    v_expense.set(data[2])
+    v_price.set(data[3])
+    v_count.set(data[4])
+
+    POPUP.mainloop()
+
+r_click = Menu(root,tearoff=0)
+r_click.add_command(label='Edit',command=Edit_Rec)
+r_click.add_command(label='Delete',command=Del_Rec)
+
+def m_pop(event):
+    # print(event.x_root, event.y_root) #event.x_root, event.y_root ขอกตำแหน่งเมาส์
+    r_click.post(event.x_root, event.y_root) # .post สร้าง popup
+
+resulttable.bind('<Button-3>',m_pop) # เมื่อมีการคลิกขวาที่ resulable
 
 upadate_table()
-print('Get CHILD:',resulttable.get_children())
+#updateSQL()
+#print('Get CHILD:',resulttable.get_children())
 root.bind('<Tab>', lambda x: E2.focus())
 root.mainloop ()
